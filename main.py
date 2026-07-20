@@ -1,6 +1,6 @@
 import sys
 from PySide6.QtWidgets import QApplication
-from companion_widget.py import Companion
+from companion_widget import Companion
 
 def main():
     app = QApplication(sys.argv)

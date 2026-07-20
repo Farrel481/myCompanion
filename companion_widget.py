@@ -1,7 +1,5 @@
-import sys
-
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QLabel, QWidget, QApplication
+from PySide6.QtWidgets import QLabel, QWidget
 
 class Companion(QWidget):
     def __init__(self):
@@ -9,6 +7,14 @@ class Companion(QWidget):
         self.drag_offset = None
         self.is_carried = False
         self.bob_step = 0
+
+        self.walk_speed = 3
+        self.walk_direction = 1
+        self.walk_timer = QTimer(self)
+        self.walk_timer.setInterval(30)
+        self.walk_timer.timeout.connect(self.walk_one_step)
+        self.walk_timer.start()
+
         self.setWindowFlags(
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint 
         )
@@ -30,6 +36,38 @@ class Companion(QWidget):
         self.animation_timer = QTimer(self)
         self.animation_timer.setInterval(100)
         self.animation_timer.timeout.connect(self.animate_carried)
+
+    def walk_one_step(self):
+        if self.is_carried:
+            return
+        
+        current_screen = self.screen()
+        if current_screen is None:
+            return
+        
+        screen_area = current_screen.availableGeometry()
+        next_x = self.x() + self.walk_speed * self.walk_direction
+        left_limit = screen_area.left()
+        right_limit = screen_area.right() - self.width()
+
+        if next_x <= left_limit or next_x >= right_limit:
+            self.walk_direction *= -1
+            next_x = self.x() + self.walk_speed * self.walk_direction
+
+        self.move(next_x, self.y())
+
+    def land_on_ground(self):
+        current_screen = self.screen()
+        if current_screen is None:
+            return
+        
+        screen_area = current_screen.availableGeometry()
+        ground_y = screen_area.bottom() - self.height() + 1
+        self.move(self.x(), ground_y)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self.land_on_ground()
 
     def center_hint(self):
         self.hint.adjustSize()
@@ -64,7 +102,7 @@ class Companion(QWidget):
             )
 
             self.setCursor(Qt.ClosedHandCursor)
-            self.is_carried = True
+            self.set_carried(True)
 
     def mouseMoveEvent(self, event):
         if event.buttons() & Qt.LeftButton and self.drag_offset is not None:
@@ -75,8 +113,6 @@ class Companion(QWidget):
         if event.button() == Qt.LeftButton:
             self.drag_offset = None
             self.setCursor(Qt.OpenHandCursor)
-            self.is_carried = False
-app = QApplication(sys.argv)
-companion = Companion()
-companion.show()
-sys.exit(app.exec())
+            self.set_carried(False)
+
+        self.land_on_ground()
